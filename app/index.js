@@ -17,7 +17,7 @@ const headers = {
   'Authorization': 'Basic ' + credsBase64,
   'Content-Type': 'application/json',
 };
-
+var sortedTasks = {};
 
 async function run(token, endpoint) {
   const bot = new Bot.default({
@@ -33,7 +33,7 @@ async function run(token, endpoint) {
 
   bot.updateSubject.subscribe({
     next(update) {
-      console.log(JSON.stringify({ update }, null, 2));
+      // console.log(JSON.stringify({ update }, null, 2));
     }
   });
 
@@ -45,7 +45,7 @@ async function run(token, endpoint) {
       console.log("MESSAGE", message);
       if ((message.content.type === 'text') && (message.content.text === process.env.TEXT_MESSAGE)) {
 
-        axios({
+        let result = await axios({
           url: process.env.JIRA_URL,
           method: 'get',
           headers: headers,
@@ -53,15 +53,29 @@ async function run(token, endpoint) {
         })
           .then(response => {
             response.data.issues.map((issue) => {
-              const formattedText = formatJiraText(issue) + "\n";
-              inprogressIssues += formattedText;
+              // console.log("fetched issues" , issue);
+              const creator = issue.fields.creator.displayName;
+              
+              if(sortedTasks.hasOwnProperty(creator.toString())){
+                 sortedTasks[creator.toString()].push(formatJiraText(issue)); 
+              }else{
+                sortedTasks[creator.toString()] = [];
+                sortedTasks[creator.toString()].push(formatJiraText(issue)); 
+              }
+             
+              
             })
+            inprogressIssues = sortTasks(sortedTasks);
+            console.log("inprogress" , inprogressIssues);
             sendTextToBot(bot , message);
             inprogressIssues = "";
+            
           }).catch(err => {
             console.log(err);
           });
       }
+      
+    
     }));
 
 
@@ -115,5 +129,18 @@ function sendTextToBot(bot, message) {
     inprogressIssues,
     MessageAttachment.reply(message.id),
   );
+}
 
+function sortTasks(sortedTasks){
+  var jiraResponse = "";
+  const users = Object.keys(sortedTasks);
+  users.map(function(key, index) {
+    jiraResponse += "\n"+"@"+key+"\n";
+    sortedTasks[key].map( task => {
+      jiraResponse += task + "\n";
+    })
+    // console.log("#" , jiraResponse);
+  });
+
+  return jiraResponse;
 }
