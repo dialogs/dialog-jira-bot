@@ -1,5 +1,5 @@
 
-# Jira Active Tasks Bot
+# Jira Users Active Tasks Bot
 
 A bot to fetch all the active tasks for a particular user from a particular account.
 
