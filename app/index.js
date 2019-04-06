@@ -33,7 +33,7 @@ async function run(token, endpoint) {
 
   bot.updateSubject.subscribe({
     next(update) {
-      // console.log(JSON.stringify({ update }, null, 2));
+      console.log(JSON.stringify({ update }, null, 2));
     }
   });
 
@@ -42,7 +42,7 @@ async function run(token, endpoint) {
   const messagesHandle = bot
     .subscribeToMessages()
     .pipe(flatMap(async (message) => {
-      console.log("MESSAGE", message);
+
       if ((message.content.type === 'text') && (message.content.text === process.env.TEXT_MESSAGE)) {
 
         let result = await axios({
@@ -53,7 +53,7 @@ async function run(token, endpoint) {
         })
           .then(response => {
             response.data.issues.map((issue) => {
-              // console.log("fetched issues" , issue);
+
               const creator = issue.fields.creator.displayName;
               
               if(sortedTasks.hasOwnProperty(creator.toString())){
@@ -66,7 +66,7 @@ async function run(token, endpoint) {
               
             })
             inprogressIssues = sortTasks(sortedTasks);
-            console.log("inprogress" , inprogressIssues);
+
             sendTextToBot(bot , message);
             inprogressIssues = "";
             
@@ -139,7 +139,7 @@ function sortTasks(sortedTasks){
     sortedTasks[key].map( task => {
       jiraResponse += task + "\n";
     })
-    // console.log("#" , jiraResponse);
+    
   });
 
   return jiraResponse;
