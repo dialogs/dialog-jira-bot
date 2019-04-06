@@ -42,7 +42,7 @@ async function run(token, endpoint) {
   const messagesHandle = bot
     .subscribeToMessages()
     .pipe(flatMap(async (message) => {
-      console.log("MESSAGE", message);
+
       if ((message.content.type === 'text') && (message.content.text === process.env.TEXT_MESSAGE)) {
 
         axios({
