@@ -114,11 +114,11 @@ run(token, endpoint)
 
 function formatJiraText(issue) {
   const timeInProgress = moment(issue.fields.updated).fromNow();
-  const projectId = issue.fields.project.key;
-  const taskId = issue.id;
+  const taskId = issue.key;
   const taskUrl = issue.self;
   const taskTitle = issue.fields.summary;
-  const outputFormat = timeInProgress + " - " + "[" + projectId + "-" + taskId + "](" + taskUrl + ") :" + taskTitle
+  const outputFormat =
+    timeInProgress + " - " + "[" + taskId + "](" + taskUrl + ") :" + taskTitle;
   return outputFormat;
 }
 
