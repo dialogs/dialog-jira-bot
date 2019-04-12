@@ -5,7 +5,8 @@ const {
   ActionGroup,
   Action,
   Button,
-  Select
+  Select,
+  SelectOption
 } = require("@dlghq/dialog-bot-sdk");
 const { flatMap } = require("rxjs/operators");
 const axios = require("axios");
@@ -46,7 +47,7 @@ async function run(token, endpoint) {
 
   bot.updateSubject.subscribe({
     next(update) {
-      console.log(JSON.stringify({ update }, null, 2));
+       console.log(JSON.stringify({ update }, null, 2));
     }
   });
 
@@ -68,22 +69,14 @@ async function run(token, endpoint) {
           fetchedProjects.push(project);
         });
 
-        //creating available project options
+        //creating dropdown of available project options
         const dropdownActions = [];
+        dropdownActions.push();
         fetchedProjects.map(project => {
-          const action = Action.create({
-            id: project.name,
-            widget: Button.create({ label: project.name })
-          });
-          dropdownActions.push(action);
+          dropdownActions.push(new SelectOption(project.name, project.name));
         });
 
         //adding stop button to the actions
-        const stopAction = Action.create({
-          id: "stop",
-          widget: Button.create({ label: "stop" })
-        });
-        dropdownActions.push(stopAction);
 
         // returning the projects to the messenger
         const mid = await bot.sendText(
@@ -91,7 +84,19 @@ async function run(token, endpoint) {
           "Select the project you want to add the task",
           MessageAttachment.reply(message.id),
           ActionGroup.create({
-            actions: dropdownActions
+            actions: [
+              Action.create({
+                id: `projects`,
+                widget: Select.create({
+                  label: "Projects",
+                  options: dropdownActions
+                })
+              }),
+              Action.create({
+                id: "stop",
+                widget: Button.create({ label: "stop" })
+              })
+            ]
           })
         );
       } else if (message.attachment.type === "reply") {
@@ -148,7 +153,7 @@ async function run(token, endpoint) {
             body
           ) {
             if (error) throw new Error(error);
-            console.log("OUTPUT", body);
+            console.log(body);
           });
 
           const response = {
@@ -166,9 +171,11 @@ async function run(token, endpoint) {
   const actionsHandle = bot.subscribeToActions().pipe(
     flatMap(async event => {
       if (event.id !== "stop") {
+        
         const projectToPost = await fetchedProjects.filter(
-          project => project.name === event.id
+          project => project.name === event.value
         );
+
         const dataToPost = {
           fields: {
             project: {
