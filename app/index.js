@@ -63,16 +63,21 @@ async function run(token, endpoint) {
           headers: headers
         })
           .then(response => {
+             var hasAssignee = false;
             response.data.issues.map(issue => {
-               if (
+              if (issue.fields.assignee === null) {
+              } else if (
                 issue.fields.assignee.displayName === currentUserName &&
                 issue.fields.assignee !== null
               ) {
+                hasAssignee = true;
                 const formattedText = formatJiraText(issue) + "\n";
                 inprogressIssues += formattedText;
               }
             });
-            sendTextToBot(bot, message);
+
+            if (hasAssignee) sendTextToBot(bot, message);
+
             inprogressIssues = "";
           })
           .catch(err => {
