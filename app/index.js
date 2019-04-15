@@ -47,8 +47,9 @@ async function run(token, endpoint) {
         message.content.type === "text" &&
         message.content.text === process.env.TEXT_MESSAGE
       ) {
+        let urls = process.env.JIRA_URL + process.env.PROJECT_CODE;
         let result = await axios({
-          url: process.env.JIRA_URL,
+          url: urls,
           method: "get",
           headers: headers
         })
