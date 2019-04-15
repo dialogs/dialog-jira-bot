@@ -64,7 +64,10 @@ async function run(token, endpoint) {
         })
           .then(response => {
             response.data.issues.map(issue => {
-              if (issue.fields.creator.displayName === currentUserName) {
+               if (
+                issue.fields.assignee.displayName === currentUserName &&
+                issue.fields.assignee !== null
+              ) {
                 const formattedText = formatJiraText(issue) + "\n";
                 inprogressIssues += formattedText;
               }
