@@ -19,7 +19,7 @@ You can clone the respository or download the zip file.
     JIRA_USERNAME=xxxxxxxxxx
     JIRA_API_TOKEN=xxxxxxx
     TEXT_MESSAGE=Jarvis
-    JIRA_URL=https://playteddy.atlassian.net/rest/api/2/search?jql=project=
+    JIRA_URL=https://domain.atlassian.net/rest/api/2/search?jql=project=
     PROJECT_CODE=XXX
 ```
 
