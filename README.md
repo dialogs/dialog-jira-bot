@@ -14,6 +14,7 @@ You can clone the respository or download the zip file.
 2. Create a .env file and add the following details
 
 ```sh
+    BOT_ENDPOINT=https://grpc-test.transmit.im:9443
     BOT_TOKEN=xxxxxxxxxx
     JIRA_USERNAME=xxxxxxxxxx
     JIRA_API_TOKEN=xxxxxxx
