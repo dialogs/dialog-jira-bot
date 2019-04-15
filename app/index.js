@@ -53,8 +53,10 @@ async function run(token, endpoint) {
         })
           .then(response => {
             response.data.issues.map((issue) => {
-              const formattedText = formatJiraText(issue) + "\n";
-              inprogressIssues += formattedText;
+               if (issue.reporter.emailAddress === process.env.JIRA_USERNAME) {
+                const formattedText = formatJiraText(issue) + "\n";
+                inprogressIssues += formattedText;
+              }
             })
             sendTextToBot(bot , message);
             inprogressIssues = "";
