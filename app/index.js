@@ -55,19 +55,20 @@ async function run(token, endpoint) {
         })
           .then(response => {
             response.data.issues.map(issue => {
-              // console.log("fetched issues" , issue);
               const creator = issue.fields.creator.displayName;
-
-              if (sortedTasks.hasOwnProperty(creator.toString())) {
-                sortedTasks[creator.toString()].push(formatJiraText(issue));
-              } else {
-                sortedTasks[creator.toString()] = [];
-                sortedTasks[creator.toString()].push(formatJiraText(issue));
+              if (issue.fields.status.name === "In Progress") {
+                if (sortedTasks.hasOwnProperty(creator.toString())) {
+                  sortedTasks[creator.toString()].push(formatJiraText(issue));
+                } else {
+                  sortedTasks[creator.toString()] = [];
+                  sortedTasks[creator.toString()].push(formatJiraText(issue));
+                }
               }
             });
             inprogressIssues = sortTasks(sortedTasks);
             console.log("inprogress", inprogressIssues);
             sendTextToBot(bot, message);
+            sortedTasks = [];
             inprogressIssues = "";
           })
           .catch(err => {
