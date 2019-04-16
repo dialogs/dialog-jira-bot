@@ -84,13 +84,12 @@ const messagesHandle = bot.subscribeToMessages().pipe(
           console.log(err);
         });
     } else if (wordsArray[0] === "Stop" && wordsArray[1] === "reminding") {
-      
+
       if (containsValue(tasksToTrack, wordsArray[2])) {
         _.remove(tasksToTrack, function(n) {
-
           return n.task === wordsArray[2];
         });
-       
+        
       }
     }
 
