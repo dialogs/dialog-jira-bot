@@ -57,7 +57,7 @@ const self = bot
 
 bot.updateSubject.subscribe({
   next(update) {
-    // console.log(JSON.stringify({ update }, null, 2));
+     console.log(JSON.stringify({ update }, null, 2));
   }
 });
 
@@ -65,7 +65,7 @@ bot.updateSubject.subscribe({
 const messagesHandle = bot.subscribeToMessages().pipe(
   flatMap(async message => {
     const wordsArray = message.content.text.split(" ");
-    console.log("MESSAGE", wordsArray);
+
 
     if (wordsArray[0] === "Remind" && wordsArray[1] === "about") {
       let result = await axios({
@@ -84,13 +84,13 @@ const messagesHandle = bot.subscribeToMessages().pipe(
           console.log(err);
         });
     } else if (wordsArray[0] === "Stop" && wordsArray[1] === "reminding") {
-      console.log("logs", containsValue(tasksToTrack, wordsArray[2]));
+      
       if (containsValue(tasksToTrack, wordsArray[2])) {
         _.remove(tasksToTrack, function(n) {
-          console.log("nnnnn", n, wordsArray[2]);
+
           return n.task === wordsArray[2];
         });
-        console.log("remaining", tasksToTrack);
+       
       }
     }
 
