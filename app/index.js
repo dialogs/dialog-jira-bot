@@ -47,7 +47,7 @@ async function run(token, endpoint) {
 
   bot.updateSubject.subscribe({
     next(update) {
-       console.log(JSON.stringify({ update }, null, 2));
+      console.log(JSON.stringify({ update }, null, 2));
     }
   });
 
@@ -171,7 +171,6 @@ async function run(token, endpoint) {
   const actionsHandle = bot.subscribeToActions().pipe(
     flatMap(async event => {
       if (event.id !== "stop") {
-        
         const projectToPost = await fetchedProjects.filter(
           project => project.name === event.value
         );
