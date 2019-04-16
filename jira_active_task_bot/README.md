@@ -1,7 +1,7 @@
 
 # Jira Active Tasks Bot
 
-A bot to fetch all the active tasks for a particular user from a particular account.
+A bot to fetch all the active tasks for a particular user from a particular dialog messenger account.
 
 You can clone the respository or download the zip file.
 
