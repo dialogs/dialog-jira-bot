@@ -1,5 +1,5 @@
 
-# Jira Active Tasks Bot
+# Jira Users Active Tasks Bot
 
 A bot to fetch all the active tasks for a particular user from a particular account.
 
@@ -31,4 +31,4 @@ You can clone the respository or download the zip file.
 ```sh
    $ node app/index.js
 ```
-4. Type the text in the dialog bot that you set in .env file
+4. Type the text that is assigned to TEXT_MESSAGE variable in .env file in the dialog bot.
