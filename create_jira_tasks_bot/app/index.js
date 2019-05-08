@@ -47,7 +47,7 @@ async function run(token, endpoint) {
 
   bot.updateSubject.subscribe({
     next(update) {
-      console.log(JSON.stringify({ update }, null, 2));
+       console.log(JSON.stringify({ update }, null, 2));
     }
   });
 
@@ -58,16 +58,20 @@ async function run(token, endpoint) {
       messageToReturn.id = message.id;
       if (message.content.type === "text" && message.attachment === null) {
         jiraTaskTitle = await message.content.text;
-
+        console.log("reached here", message.content.text); 
         const projects = await axios({
           url: process.env.JIRA_URL,
           method: "get",
           headers: headers
-        });
+        }).then(res=> 
+          {
+            console.log("res", res)
+            res.data.values.map(project => {
+              fetchedProjects.push(project);
+            });
+          }).catch(err => console.log("err", err));
 
-        projects.data.values.map(project => {
-          fetchedProjects.push(project);
-        });
+       
 
         //creating dropdown of available project options
         const dropdownActions = [];
@@ -120,49 +124,7 @@ async function run(token, endpoint) {
             peer: message.peer
           };
           sendTextToBot(bot, response);
-        } else if (message.content.type === "document") {
-          const attachmentUrl =
-            process.env.JIRA_ISSUE_CREATE_ATTACHMENT +
-            "/" +
-            addedIssueKey +
-            "/attachments";
-
-          const fileUrl = process.env.FILE_UPLOAD_PATH + message.content.name;
-          const options = {
-            method: "POST",
-            url: attachmentUrl,
-            headers: {
-              Authorization: "Basic " + credsBase64,
-              "cache-control": "no-cache,no-cache",
-              "X-Atlassian-Token": "no-check",
-              "content-type":
-                "multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW"
-            },
-            formData: {
-              file: {
-                value: fs.createReadStream(fileUrl),
-                options: { filename: fileUrl, contentType: null }
-              }
-            }
-          };
-
-          //http request to post the image or file as an attachment
-          const postIssueToJira = await request(options, function(
-            error,
-            response,
-            body
-          ) {
-            if (error) throw new Error(error);
-            console.log(body);
-          });
-
-          const response = {
-            id: message.id,
-            text: "File has been added succesfully to the task",
-            peer: message.peer
-          };
-          sendTextToBot(bot, response);
-        }
+        } 
       }
     })
   );
