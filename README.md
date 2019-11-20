@@ -28,7 +28,8 @@ You can clone the respository or download the zip file.
 - JIRA_USERNAME login which you used to sign up on JIRA.
 - JIRA_PASSWORD password which you used to sign up on JIRA.
 - JIRA_URL replace the 'domain' with your own jira domain name and rest of the URL remains same.
-- TIMEOUT timeout 
+- TIMEOUT - interval between search change status.
+- MESSAGE_LENGTH - max message length on server.
 
 3. Run the command:
 ```sh
