@@ -71,7 +71,7 @@ async function run(token, endpoint) {
                     tasksToTrack[key].map(task => {
                       if (task.task === data.key) {
                         task.status = data.fields.status.name;
-                        bot.sendText(peers[key], formatJiraTextForChange(data), null);
+                        bot.sendText(peers[key], formatJiraTextForChange(data), null).catch(err => console.log(err));
                       }
                     });
                   }
@@ -113,7 +113,7 @@ async function run(token, endpoint) {
             if (!validProject) {
                 return bot.sendText(message.peer,
                     "Unknown project code. Valid project codes: `" + projectsArray.map(getProjectKey).join("`, `")+ "`",
-                    null)
+                    null).catch(err => console.log(err))
             }
             let urls = process.env.JIRA_URL + "/rest/api/2/search?jql=project=" +
                 commandsArray[1] +
@@ -130,7 +130,7 @@ async function run(token, endpoint) {
                   if (!sortedTasks.hasOwnProperty(creator.toString())) sortedTasks[creator.toString()] = [];
                   sortedTasks[creator.toString()].push(formatJiraText(issue));
                 });
-                bot.sendText(message.peer, sortTasks(sortedTasks), null);
+                bot.sendText(message.peer, sortTasks(sortedTasks), null).catch(err => console.log(err));
               })
               .catch(err => console.log(err));
           } else if (command === USER_COMMAND) {
@@ -147,9 +147,10 @@ async function run(token, endpoint) {
                         let inprogressIssues = response.data.issues.map(formatJiraText).join("\n");
                         console.log(response.data.issues.length > 0);
                         if (response.data.issues.length > 0) {
-                            bot.sendText(message.peer, inprogressIssues, null);
+                            bot.sendText(message.peer, inprogressIssues, null).catch(err => console.log(err));
                         } else {
-                            bot.sendText(message.peer, "You has no tasks in status \"In Progress\"", null);
+                            bot.sendText(message.peer, "You has no tasks in status \"In Progress\"", null)
+                            .catch(err => console.log(err));
                         }
                     })
                     .catch(err => {
@@ -200,7 +201,7 @@ async function run(token, endpoint) {
                     })
                   ]
                 })
-              );
+              ).catch(err => console.log(err));
             } else if (len > 1 &&
                        commandsArray.length === 2 &&
                        commandsArray[0] === COMMENT_COMMAND) {
@@ -220,7 +221,8 @@ async function run(token, endpoint) {
                     data: bodyData
                   });
 
-                  bot.sendText(message.peer, "Comment has been added succesfully to the task", null);
+                  bot.sendText(message.peer, "Comment has been added succesfully to the task", null)
+                      .catch(err => console.log(err));
               }
             } else if (commandsArray[0] === REMIND_COMMAND && commandsArray.length === 2) {
               let result = await axios({
@@ -235,15 +237,18 @@ async function run(token, endpoint) {
                   };
                   if (tasksToTrack[message.peer.id] === undefined) tasksToTrack[message.peer.id] = [];
                   if (containsValue(tasksToTrack[message.peer.id], commandsArray[1])){
-                      bot.sendText(message.peer, "I'm already tracking " + commandsArray[1] + " for you <3", null);
+                      bot.sendText(message.peer, "I'm already tracking " + commandsArray[1] + " for you <3", null)
+                      .catch(err => console.log(err));
                   } else {
                      tasksToTrack[message.peer.id].push(issue);
-                     bot.sendText(message.peer, "I'm tracking " + commandsArray[1] + " for you <3", null);
+                     bot.sendText(message.peer, "I'm tracking " + commandsArray[1] + " for you <3", null)
+                     .catch(err => console.log(err));
                   }
                 })
                 .catch(err => {
-                  bot.sendText(message.peer, "No task " + commandsArray[1], null);
                   console.log(err);
+                  bot.sendText(message.peer, "No task " + commandsArray[1], null).catch(err => console.log(err));
+
                 });
             } else if (commandsArray[0] === REMIND_STOP_COMMAND && commandsArray.length === 2) {
               if (tasksToTrack[message.peer.id] === undefined) tasksToTrack[message.peer.id] = [];
@@ -251,9 +256,11 @@ async function run(token, endpoint) {
               if (containsValue(tasksToTrack[message.peer.id], commandsArray[1])) {
                 tasksToTrack[message.peer.id] = removeValue(tasksToTrack[message.peer.id], commandsArray[1]);
                 console.log("remaining", tasksToTrack[message.peer.id]);
-                bot.sendText(message.peer, "I'm stop tracking " + commandsArray[1] + " for you <3", null);
+                bot.sendText(message.peer, "I'm stop tracking " + commandsArray[1] + " for you <3", null)
+                .catch(err => console.log(err));
               } else {
-                bot.sendText(message.peer, "I'm not tracking " + commandsArray[1] + " for you <3");
+                bot.sendText(message.peer, "I'm not tracking " + commandsArray[1] + " for you <3")
+                .catch(err => console.log(err));
               }
             } else {
               const msg = "send commands:\n" +
@@ -267,7 +274,7 @@ async function run(token, endpoint) {
                   "`" + NEW_TASK_COMMAND + "`\n" +
                   "`title_text`\n" +
                   "`description_text` - for create new task with title = `title_text` and description = `description_text`";
-              bot.sendText(message.peer, msg, null);
+              bot.sendText(message.peer, msg, null).catch(err => console.log(err));
           }
       }
     })
@@ -310,7 +317,7 @@ async function run(token, endpoint) {
             jiraTaskTitle[event.uid]
         );
 
-        bot.sendText(peers[event.uid], responseText, null);
+        bot.sendText(peers[event.uid], responseText, null).catch(err => console.log(err));
 
         //resetting the variables
         delete fetchedProjects[event.uid];
