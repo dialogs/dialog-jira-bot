@@ -1,16 +1,17 @@
 const dotenv = require("dotenv");
 const Bot = require("@dlghq/dialog-bot-sdk");
 const {
-  MessageAttachment,
-  ActionGroup,
-  Action,
-  Select,
-  SelectOption
+    MessageAttachment,
+    ActionGroup,
+    Action,
+    Select,
+    SelectOption
 } = require("@dlghq/dialog-bot-sdk");
 const { flatMap } = require("rxjs/operators");
 const axios = require("axios");
 const { merge } = require("rxjs");
 const moment = require("moment");
+const fs = require('fs');
 
 const USERS_ACTIVE_COMMAND = "active";
 const USER_COMMAND = "progress";
@@ -19,8 +20,11 @@ const REMIND_STOP_COMMAND = "stop";
 const NEW_TASK_COMMAND = "new";
 const COMMENT_COMMAND = "comment";
 
-const TIMEOUT = Number.parseInt(process.env.TIMEOUT);
-const MESSAGE_LENGTH = Number.parseInt(process.env.MESSAGE_LENGTH);
+const config = JSON.parse(fs.readFileSync("settings.json", "utf-8"));
+
+const JIRA_URL = config["jiraUrl"];
+const TIMEOUT = config["timeout"];
+const MESSAGE_LENGTH = config["messageLength"];
 
 const LANGUAGES = ['ru', 'en'];
 const DEFAULT_LANG = 'en';
@@ -71,33 +75,33 @@ const LOCALE = {
     },
     help: {
         en: "send commands:\n" +
-          "`" + USERS_ACTIVE_COMMAND + " project_code` - for get all tasks in `project_code` project with status " +
-          "\"In Progress\" (example `project_code` = `DP` Dialog Platform),\n" +
-          "`" + USER_COMMAND + "` - for get your tasks with status \"In Progress\",\n" +
-          "`" + REMIND_COMMAND + " task_id` - for start tracking change status for `task_id`,\n" +
-          "`" + REMIND_STOP_COMMAND + " task_id` - for stop tracking change status for `task_id`,\n" +
-          "`" + COMMENT_COMMAND + " task_id`\n" +
-          "`comment_text` - for add comment to `task_id` with `comment_text`,\n" +
-          "`" + NEW_TASK_COMMAND + "`\n" +
-          "`title_text`\n" +
-          "`description_text` - for create new task with title = `title_text` and description = `description_text`",
+            "`" + USERS_ACTIVE_COMMAND + " project_code` - for get all tasks in `project_code` project with status " +
+            "\"In Progress\" (example `project_code` = `DP` Dialog Platform),\n" +
+            "`" + USER_COMMAND + "` - for get your tasks with status \"In Progress\",\n" +
+            "`" + REMIND_COMMAND + " task_id` - for start tracking change status for `task_id`,\n" +
+            "`" + REMIND_STOP_COMMAND + " task_id` - for stop tracking change status for `task_id`,\n" +
+            "`" + COMMENT_COMMAND + " task_id`\n" +
+            "`comment_text` - for add comment to `task_id` with `comment_text`,\n" +
+            "`" + NEW_TASK_COMMAND + "`\n" +
+            "`title_text`\n" +
+            "`description_text` - for create new task with title = `title_text` and description = `description_text`",
         ru: "отправьте одну из команд:\n" +
-          "`" + USERS_ACTIVE_COMMAND + " project_code` - для получения всех тасок `project_code` проекта со статусом " +
-          "\"In Progress\" (например, `project_code` = `DP` Dialog Platform),\n" +
-          "`" + USER_COMMAND + "` - для получения ваших тасок в статусе \"In Progress\",\n" +
-          "`" + REMIND_COMMAND + " task_id` - чтобы началать отслеживать статус таски по `task_id`,\n" +
-          "`" + REMIND_STOP_COMMAND + " task_id` - чтобы остановить отслеживать статус таски `task_id`,\n" +
-          "`" + COMMENT_COMMAND + " task_id`\n" +
-          "`comment_text` - чтобы добавить комментарий `task_id` с текстом `comment_text`,\n" +
-          "`" + NEW_TASK_COMMAND + "`\n" +
-          "`title_text`\n" +
-          "`description_text` - чтобы создать новую таску заголовок = `title_text` и описание = `description_text`"
+            "`" + USERS_ACTIVE_COMMAND + " project_code` - для получения всех тасок `project_code` проекта со статусом " +
+            "\"In Progress\" (например, `project_code` = `DP` Dialog Platform),\n" +
+            "`" + USER_COMMAND + "` - для получения ваших тасок в статусе \"In Progress\",\n" +
+            "`" + REMIND_COMMAND + " task_id` - чтобы началать отслеживать статус таски по `task_id`,\n" +
+            "`" + REMIND_STOP_COMMAND + " task_id` - чтобы остановить отслеживать статус таски `task_id`,\n" +
+            "`" + COMMENT_COMMAND + " task_id`\n" +
+            "`comment_text` - чтобы добавить комментарий `task_id` с текстом `comment_text`,\n" +
+            "`" + NEW_TASK_COMMAND + "`\n" +
+            "`title_text`\n" +
+            "`description_text` - чтобы создать новую таску заголовок = `title_text` и описание = `description_text`"
     }
 };
 
 dotenv.config();
 
-const credentials = process.env.JIRA_USERNAME + ":" + process.env.JIRA_PASSWORD;
+const credentials = config["user"] + ":" + config["password"];
 const credsBase64 = Buffer.from(credentials).toString("base64");
 
 const headers = {
@@ -112,13 +116,13 @@ let peers = {};
 let tasksToTrack = {};
 
 //token to connect to the bot
-const token = process.env.BOT_TOKEN;
+const token = config["botToken"];
 if (typeof token !== "string") {
   throw new Error("BOT_TOKEN env variable not configured");
 }
 
 //bot endpoint
-const endpoint = process.env.BOT_ENDPOINT;
+const endpoint = config["botEndpoint"];
 
 const bot = new Bot.default({
     token,
@@ -137,7 +141,7 @@ async function run() {
         }
     });
 
-    searchJiraTasks();
+    searchJiraTasks().catch(err => console.log(err));
 
     //subscribing to incoming messages
     const messagesHandle = bot.subscribeToMessages().pipe(
@@ -146,7 +150,7 @@ async function run() {
             peers[message.peer.id] = message.peer;
 
             if (message.content.type === "text") {
-                const lang = await getCurrentUserLang(bot, message.peer.id);
+                const lang = await getCurrentUserLang(message.peer.id);
                 const wordsArray = message.content.text.split("\n");
                 const command = wordsArray[0];
                 const commandsArray = wordsArray[0].split(" ");
@@ -155,7 +159,7 @@ async function run() {
                     commandsArray[0] === USERS_ACTIVE_COMMAND) {
                     let projectsArray = [];
                     await axios({
-                        url: process.env.JIRA_URL + "/rest/api/2/project",
+                        url: JIRA_URL + "/rest/api/2/project",
                         method: "get",
                         headers: headers
                     }).then(res => {
@@ -169,10 +173,10 @@ async function run() {
                         if (project.key === commandsArray[1]) validProject = true;
                     });
                     if (!validProject) {
-                        return sendText(bot, message.peer,
+                        return sendText(message.peer,
                             LOCALE.unknownProject[lang] + "`" + projectsArray.map(getProjectKey).join("`, `") + "`")
                     }
-                    let urls = process.env.JIRA_URL + "/rest/api/2/search?jql=project=" +
+                    let urls = JIRA_URL + "/rest/api/2/search?jql=project=" +
                         commandsArray[1] +
                         "%20AND%20status=\"In+Progress\"&maxResults=100";
                     let result = await axios({
@@ -187,14 +191,14 @@ async function run() {
                                 if (!sortedTasks.hasOwnProperty(creator.toString())) sortedTasks[creator.toString()] = [];
                                 sortedTasks[creator.toString()].push(formatJiraText(issue, lang));
                             });
-                            sendSortTasks(bot, message.peer, sortedTasks)
+                            sendSortTasks(message.peer, sortedTasks)
                         })
                         .catch(err => console.log(err));
                 } else if (command === USER_COMMAND) {
-                    getCurrentUserNick(bot, message.peer)
+                    getCurrentUserNick(message.peer)
                         .then(user => {
                             axios({
-                                url: process.env.JIRA_URL +
+                                url: JIRA_URL +
                                     "/rest/api/2/search?jql=status=\"In+Progress\"%20AND%20assignee=" +
                                     user,
                                 method: "get",
@@ -204,7 +208,7 @@ async function run() {
                                     if (response.data.issues.length > 0) {
                                         formatJiraText(response.data.issues, lang);
                                     } else {
-                                        sendText(bot, message.peer, LOCALE.noUserTasks[lang]);
+                                        sendText(message.peer, LOCALE.noUserTasks[lang]);
                                     }
                                 })
                                 .catch(err => {
@@ -218,12 +222,13 @@ async function run() {
                     for (let i = 2; i < len; i++) {
                         jiraTaskDescription[message.peer.id] = jiraTaskDescription[message.peer.id] + wordsArray[i] + "\n"
                     }
-                    const projects = await axios({
-                        url: process.env.JIRA_URL + "/rest/api/2/project",
+                    await axios({
+                        url: JIRA_URL + "/rest/api/2/project",
                         method: "get",
                         headers: headers
                     }).then(res => {
                         fetchedProjects[message.peer.id] = [];
+                        console.log("res",res.data);
                         res.data.forEach(project => {
                             fetchedProjects[message.peer.id].push(project);
                         });
@@ -240,7 +245,6 @@ async function run() {
 
                     // returning the projects to the messenger
                     const mid = await sendText(
-                        bot,
                         message.peer,
                         LOCALE.selectProject[lang],
                         MessageAttachment.reply(message.id),
@@ -261,7 +265,7 @@ async function run() {
                     commandsArray[0] === COMMENT_COMMAND) {
                     const issue = commandsArray[1];
                     const commentUrl =
-                        process.env.JIRA_URL + "/rest/api/2/issue/" + issue + "/comment";
+                        JIRA_URL + "/rest/api/2/issue/" + issue + "/comment";
                     let comment = "";
                     for (let i = 1; i < len; i++) comment = comment + wordsArray[i] + "\n";
                     if (comment !== "") {
@@ -275,11 +279,11 @@ async function run() {
                             data: bodyData
                         });
 
-                        sendText(bot, message.peer, LOCALE.completeComment[lang]);
+                        sendText(message.peer, LOCALE.completeComment[lang]);
                     }
                 } else if (commandsArray[0] === REMIND_COMMAND && commandsArray.length === 2) {
                     let result = await axios({
-                        url: process.env.JIRA_URL + "/rest/api/2/issue/" + commandsArray[1],
+                        url: JIRA_URL + "/rest/api/2/issue/" + commandsArray[1],
                         method: "get",
                         headers: headers
                     })
@@ -290,15 +294,15 @@ async function run() {
                             };
                             if (tasksToTrack[message.peer.id] === undefined) tasksToTrack[message.peer.id] = [];
                             if (containsValue(tasksToTrack[message.peer.id], commandsArray[1])) {
-                                sendText(bot, message.peer, format(LOCALE.trackingAlready[lang], [commandsArray[1]]));
+                                sendText(message.peer, format(LOCALE.trackingAlready[lang], [commandsArray[1]]));
                             } else {
                                 tasksToTrack[message.peer.id].push(issue);
-                                sendText(bot, message.peer, format(LOCALE.trackingOn[lang], [commandsArray[1]]));
+                                sendText(message.peer, format(LOCALE.trackingOn[lang], [commandsArray[1]]));
                             }
                         })
                         .catch(err => {
                             console.log(err);
-                            bot.sendText(bot, message.peer, LOCALE.noTask[lang] + [commandsArray[1]]);
+                            bot.sendText(message.peer, LOCALE.noTask[lang] + [commandsArray[1]]);
 
                         });
                 } else if (commandsArray[0] === REMIND_STOP_COMMAND && commandsArray.length === 2) {
@@ -306,12 +310,12 @@ async function run() {
                     console.log("logs", containsValue(tasksToTrack[message.peer.id], commandsArray[1]));
                     if (containsValue(tasksToTrack[message.peer.id], commandsArray[1])) {
                         tasksToTrack[message.peer.id] = removeValue(tasksToTrack[message.peer.id], commandsArray[1]);
-                        sendText(bot, message.peer, format(LOCALE.trackingOff[lang]), [commandsArray[1]]);
+                        sendText(message.peer, format(LOCALE.trackingOff[lang], [commandsArray[1]]));
                     } else {
-                        sendText(bot, message.peer, format(LOCALE.noTracking[lang]), [commandsArray[1]]);
+                        sendText(message.peer, format(LOCALE.noTracking[lang], [commandsArray[1]]));
                     }
                 } else {
-                    sendText(bot, message.peer, LOCALE.help[lang]);
+                    sendText(message.peer, LOCALE.help[lang]);
                 }
             }
         })
@@ -340,7 +344,7 @@ async function run() {
 
             //creating the issue in JIRA
             const postIssueToJira = await axios({
-                url: process.env.JIRA_URL + "/rest/api/2/issue",
+                url: JIRA_URL + "/rest/api/2/issue",
                 method: "post",
                 headers: headers,
                 data: dataToPost
@@ -353,7 +357,7 @@ async function run() {
                 jiraTaskTitle[event.uid]
             );
 
-            sendText(bot, peers[event.uid], responseText);
+            sendText(peers[event.uid], responseText);
 
             //resetting the variables
             delete fetchedProjects[event.uid];
@@ -384,13 +388,13 @@ function formatJiraText(issue, lang) {
         assignee = ` (${LOCALE.assignee[lang]} ` + issue.fields.assignee.displayName.toString() + ")";
     }
     const outputFormat =
-        timeInProgress + " - " + "[" + taskId + "](" + process.env.JIRA_URL + "/browse/" + taskId + ") : " + taskTitle + assignee;
+        timeInProgress + " - " + "[" + taskId + "](" + JIRA_URL + "/browse/" + taskId + ") : " + taskTitle + assignee;
     return outputFormat;
 }
 
 function formatJiraTextForProject(task, project, jiraTaskTitle) {
     const outputFormat =
-        "[" + task.key + "](" + process.env.JIRA_URL + "/browse/" + task.key + ") : " + jiraTaskTitle;
+        "[" + task.key + "](" + JIRA_URL + "/browse/" + task.key + ") : " + jiraTaskTitle;
     return outputFormat;
 }
 
@@ -404,7 +408,7 @@ function formatJiraTextForChange(issue) {
     return outputFormat;
 }
 
-async function sendSortTasks(bot, peer, sortedTasks) {
+async function sendSortTasks(peer, sortedTasks) {
     let blocks = "";
     let jiraResponse = "";
     const users = Object.keys(sortedTasks);
@@ -414,21 +418,21 @@ async function sendSortTasks(bot, peer, sortedTasks) {
             jiraResponse += task + "\n";
         });
         if (blocks.length + jiraResponse.length > MESSAGE_LENGTH) {
-            sendText(bot, peer, blocks);
+            sendText(peer, blocks);
             blocks = jiraResponse;
             jiraResponse = "";
         }
         blocks = blocks + jiraResponse;
     });
-    await sendText(bot, peer, blocks);
+    await sendText(peer, blocks);
 }
 
-async function getCurrentUserNick(bot, peer) {
+async function getCurrentUserNick(peer) {
     const user = await bot.getUser(peer.id);
     return user.nick;
 }
 
-async function getCurrentUserLang(bot, uid) {
+async function getCurrentUserLang(uid) {
     const user = await bot.loadFullUser(uid);
     let res = "";
     user.preferredLanguages
@@ -475,7 +479,7 @@ function getProjectKey(project) {
     return project.key
 }
 
-async function sendText(bot, peer, text, attach, actions) {
+async function sendText(peer, text, attach, actions) {
     bot.sendText(peer, text, attach, actions).catch(err => console.log(err));
 }
 
@@ -488,30 +492,31 @@ function format(template, args) {
     return res
 }
 
-    async function searchJiraTasks() {
-        updateJiraTasks().then(_ => setTimeout(updateJiraTasks, TIMEOUT))
-    }
+async function searchJiraTasks() {
+    updateJiraTasks().then(_ => setTimeout(searchJiraTasks, TIMEOUT))
+}
 
-    async function updateJiraTasks() {
-        for (let key in tasksToTrack) {
-            if (tasksToTrack[key] !== undefined) {
-                for (let i = 0; i < tasksToTrack[key].length; i++) {
-                    let result = await axios({
-                        url: process.env.JIRA_URL + "/rest/api/2/issue/" + tasksToTrack[key][i]["task"],
-                        method: "get",
-                        headers: headers
-                    }).then(response => {
-                        let data = response.data;
-                        if (data.fields.status.name !== issueStatus(data.key, key)) {
-                            tasksToTrack[key].map(task => {
-                                if (task.task === data.key) {
-                                    task.status = data.fields.status.name;
-                                    sendText(bot, peers[key], formatJiraTextForChange(data));
-                                }
-                            });
-                        }
-                    }).catch(err => console.log(err));
-                }
+async function updateJiraTasks() {
+    console.log("any");
+    for (let key in tasksToTrack) {
+        if (tasksToTrack[key] !== undefined) {
+            for (let i = 0; i < tasksToTrack[key].length; i++) {
+                let result = await axios({
+                    url: JIRA_URL + "/rest/api/2/issue/" + tasksToTrack[key][i]["task"],
+                    method: "get",
+                    headers: headers
+                }).then(response => {
+                    let data = response.data;
+                    if (data.fields.status.name !== issueStatus(data.key, key)) {
+                        tasksToTrack[key].map(task => {
+                            if (task.task === data.key) {
+                                task.status = data.fields.status.name;
+                                sendText(peers[key], formatJiraTextForChange(data));
+                            }
+                        });
+                    }
+                }).catch(err => console.log(err));
             }
         }
     }
+}
