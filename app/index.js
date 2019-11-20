@@ -432,6 +432,5 @@ function getProjectKey(project) {
 }
 
 async function sendText(bot, peer, text, attach, actions) {
-    console.log("actions", actions);
     bot.sendText(peer, text, attach, actions).catch(err => console.log(err));
 }
