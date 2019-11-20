@@ -22,6 +22,79 @@ const COMMENT_COMMAND = "comment";
 const TIMEOUT = Number.parseInt(process.env.TIMEOUT);
 const MESSAGE_LENGTH = Number.parseInt(process.env.MESSAGE_LENGTH);
 
+const LANGUAGES = ['ru', 'en'];
+const DEFAULT_LANG = 'en';
+const LOCALE = {
+    unknownProject: {
+        en: "Unknown project code. Valid project codes: ",
+        ru: "Неизвестный код проекта. Валидные коды: "
+    },
+    noUserTasks: {
+        en: "You has no tasks in status \"In Progress\"",
+        ru: "У Вас нет тасок со статусом \"In Progress\""
+    },
+    selectProject: {
+        en: "Select the project you want to add the task:",
+        ru: "Выберете проект, в котором хотите создать таску:"
+    },
+    completeComment: {
+        en: "Comment has been added succesfully to the task",
+        ru: "Комментарий успешно отправлен"
+    },
+    trackingOn: {
+        en: "I'm tracking ${} for you.",
+        ru: "Я отслеживаю ${} для Вас."
+    },
+    trackingAlready: {
+        en: "I'm already tracking ${} for you.",
+        ru: "Я уже отслеживаю ${} для Вас."
+    },
+    trackingOff: {
+        en: "I'm stop tracking ${} for you.",
+        ru: "Я перестал отслеживать ${} для Вас."
+    },
+    noTracking: {
+        en: "I'm not tracking ${} for you.",
+        ru: "Я не отслеживаю ${} для Вас."
+    },
+    noTask: {
+        en: "No task ",
+        ru: "Нет таски "
+    },
+    noDescription: {
+        en: "Creating of an issue using project keys and issue type names using the REST API",
+        ru: "Таска создана ботом через REST API"
+    },
+    assignee: {
+        en: "assignee",
+        ru: "исполнитель"
+    },
+    help: {
+        en: "send commands:\n" +
+          "`" + USERS_ACTIVE_COMMAND + " project_code` - for get all tasks in `project_code` project with status " +
+          "\"In Progress\" (example `project_code` = `DP` Dialog Platform),\n" +
+          "`" + USER_COMMAND + "` - for get your tasks with status \"In Progress\",\n" +
+          "`" + REMIND_COMMAND + " task_id` - for start tracking change status for `task_id`,\n" +
+          "`" + REMIND_STOP_COMMAND + " task_id` - for stop tracking change status for `task_id`,\n" +
+          "`" + COMMENT_COMMAND + " task_id`\n" +
+          "`comment_text` - for add comment to `task_id` with `comment_text`,\n" +
+          "`" + NEW_TASK_COMMAND + "`\n" +
+          "`title_text`\n" +
+          "`description_text` - for create new task with title = `title_text` and description = `description_text`",
+        ru: "отправьте одну из команд:\n" +
+          "`" + USERS_ACTIVE_COMMAND + " project_code` - для получения всех тасок `project_code` проекта со статусом " +
+          "\"In Progress\" (например, `project_code` = `DP` Dialog Platform),\n" +
+          "`" + USER_COMMAND + "` - для получения ваших тасок в статусе \"In Progress\",\n" +
+          "`" + REMIND_COMMAND + " task_id` - чтобы началать отслеживать статус таски по `task_id`,\n" +
+          "`" + REMIND_STOP_COMMAND + " task_id` - чтобы остановить отслеживать статус таски `task_id`,\n" +
+          "`" + COMMENT_COMMAND + " task_id`\n" +
+          "`comment_text` - чтобы добавить комментарий `task_id` с текстом `comment_text`,\n" +
+          "`" + NEW_TASK_COMMAND + "`\n" +
+          "`title_text`\n" +
+          "`description_text` - чтобы создать новую таску заголовок = `title_text` и описание = `description_text`"
+    }
+};
+
 dotenv.config();
 
 const credentials =
@@ -48,7 +121,6 @@ async function run(token, endpoint) {
 
   //fetching bot name
   const self = await bot.getSelf();
-  console.log(credentials);
   console.log(credsBase64);
   console.log(`I've started, post me something @${self.nick}`);
 
@@ -89,6 +161,7 @@ async function run(token, endpoint) {
       peers[message.peer.id] = message.peer;
 
       if (message.content.type === "text") {
+          const lang = await getCurrentUserLang(bot, message.peer.id);
           const wordsArray = message.content.text.split("\n");
           const command = wordsArray[0];
           const commandsArray = wordsArray[0].split(" ");
@@ -113,8 +186,7 @@ async function run(token, endpoint) {
             });
             if (!validProject) {
                 return sendText(bot, message.peer,
-                    "Unknown project code. Valid project codes: `" +
-                    projectsArray.map(getProjectKey).join("`, `")+ "`")
+                    LOCALE.unknownProject[lang] + "`" + projectsArray.map(getProjectKey).join("`, `") + "`")
             }
             let urls = process.env.JIRA_URL + "/rest/api/2/search?jql=project=" +
                 commandsArray[1] +
@@ -129,7 +201,7 @@ async function run(token, endpoint) {
                 response.data.issues.map(issue => {
                   const creator = issue.fields.creator.displayName;
                   if (!sortedTasks.hasOwnProperty(creator.toString())) sortedTasks[creator.toString()] = [];
-                  sortedTasks[creator.toString()].push(formatJiraText(issue));
+                  sortedTasks[creator.toString()].push(formatJiraText(issue, lang));
                 });
                 sendSortTasks(bot, message.peer, sortedTasks)
               })
@@ -145,12 +217,10 @@ async function run(token, endpoint) {
                       headers: headers
                    })
                     .then(response => {
-                        let inprogressIssues = response.data.issues.map(formatJiraText).join("\n");
-                        console.log(response.data.issues.length > 0);
                         if (response.data.issues.length > 0) {
-                            sendText(bot, message.peer, inprogressIssues);
+                            formatJiraText(response.data.issues, lang);
                         } else {
-                            sendText(bot, message.peer, "You has no tasks in status \"In Progress\"");
+                            sendText(bot, message.peer, LOCALE.noUserTasks[lang]);
                         }
                     })
                     .catch(err => {
@@ -189,7 +259,7 @@ async function run(token, endpoint) {
               const mid = await sendText(
                 bot,
                 message.peer,
-                "Select the project you want to add the task",
+                LOCALE.selectProject[lang],
                 MessageAttachment.reply(message.id),
                 ActionGroup.create({
                   actions: [
@@ -222,7 +292,7 @@ async function run(token, endpoint) {
                     data: bodyData
                   });
 
-                  sendText(bot, message.peer, "Comment has been added succesfully to the task");
+                  sendText(bot, message.peer, LOCALE.completeComment[lang]);
               }
             } else if (commandsArray[0] === REMIND_COMMAND && commandsArray.length === 2) {
               let result = await axios({
@@ -237,15 +307,15 @@ async function run(token, endpoint) {
                   };
                   if (tasksToTrack[message.peer.id] === undefined) tasksToTrack[message.peer.id] = [];
                   if (containsValue(tasksToTrack[message.peer.id], commandsArray[1])){
-                      sendText(bot, message.peer, "I'm already tracking " + commandsArray[1] + " for you.");
+                      sendText(bot, message.peer, format(LOCALE.trackingAlready[lang], [commandsArray[1]]));
                   } else {
                      tasksToTrack[message.peer.id].push(issue);
-                     sendText(bot, message.peer, "I'm tracking " + commandsArray[1] + " for you.");
+                     sendText(bot, message.peer, format(LOCALE.trackingOn[lang], [commandsArray[1]]));
                   }
                 })
                 .catch(err => {
                   console.log(err);
-                  bot.sendText(bot, message.peer, "No task " + commandsArray[1]);
+                  bot.sendText(bot, message.peer, LOCALE.noTask[lang] + [commandsArray[1]]);
 
                 });
             } else if (commandsArray[0] === REMIND_STOP_COMMAND && commandsArray.length === 2) {
@@ -254,23 +324,12 @@ async function run(token, endpoint) {
               if (containsValue(tasksToTrack[message.peer.id], commandsArray[1])) {
                 tasksToTrack[message.peer.id] = removeValue(tasksToTrack[message.peer.id], commandsArray[1]);
                 console.log("remaining", tasksToTrack[message.peer.id]);
-                sendText(bot, message.peer, "I'm stop tracking " + commandsArray[1] + " for you.");
+                sendText(bot, message.peer, format(LOCALE.trackingOff[lang]), [commandsArray[1]]);
               } else {
-                sendText(bot, message.peer, "I'm not tracking " + commandsArray[1] + " for you.");
+                sendText(bot, message.peer, format(LOCALE.noTracking[lang]), [commandsArray[1]]);
               }
             } else {
-              const msg = "send commands:\n" +
-                  "`" + USERS_ACTIVE_COMMAND + " project_code` - for get all tasks in `project_code` project with status " +
-                  "\"In Progress\" (example `project_code` = `DP` Dialog Platform),\n" +
-                  "`" + USER_COMMAND + "` - for get your tasks with status \"In Progress\",\n" +
-                  "`" + REMIND_COMMAND + " task_id` - for start tracking change status for `task_id`,\n" +
-                  "`" + REMIND_STOP_COMMAND + " task_id` - for stop tracking change status for `task_id`,\n" +
-                  "`" + COMMENT_COMMAND + " task_id`\n" +
-                  "`comment_text` - for add comment to `task_id` with `comment_text`,\n" +
-                  "`" + NEW_TASK_COMMAND + "`\n" +
-                  "`title_text`\n" +
-                  "`description_text` - for create new task with title = `title_text` and description = `description_text`";
-              sendText(bot, message.peer, msg);
+              sendText(bot, message.peer, LOCALE.help[lang]);
           }
       }
     })
@@ -281,9 +340,8 @@ async function run(token, endpoint) {
         const projectToPost = await fetchedProjects[[event.uid]].filter(
         project => project.name === event.value
         );
-
-        let description = jiraTaskDescription[event.uid] ||
-            "Creating of an issue using project keys and issue type names using the REST API";
+        const lang = await getCurrentUserLang(event.uid);
+        let description = jiraTaskDescription[event.uid] || LOCALE.noDescription[lang];
 
         const dataToPost = {
             fields: {
@@ -344,13 +402,13 @@ run(token, endpoint).catch(error => {
   process.exit(1);
 });
 
-function formatJiraText(issue) {
+function formatJiraText(issue, lang) {
   const timeInProgress = moment(issue.fields.updated).fromNow();
   const taskId = issue.key;
   const taskTitle = issue.fields.summary;
   let assignee = "";
   if (issue.fields.assignee !== null) {
-      assignee = " (assignee " + issue.fields.assignee.displayName.toString() + ")";
+      assignee = ` (${LOCALE.assignee[lang]} ` + issue.fields.assignee.displayName.toString() + ")";
   }
   const outputFormat =
     timeInProgress + " - " + "[" + taskId + "](" + process.env.JIRA_URL + "/browse/" + taskId + ") : " + taskTitle + assignee;
@@ -397,6 +455,19 @@ async function getCurrentUserNick(bot, peer) {
   return user.nick;
 }
 
+async function getCurrentUserLang(bot, uid) {
+  const user = await bot.loadFullUser(uid);
+  let res = "";
+  user.preferredLanguages
+      .map(l => l.toLowerCase().trim().replace('-', '_').split('_')[0])
+      .forEach(lang =>
+        LANGUAGES.forEach(default_lang => {
+           if (lang === default_lang) res = lang;
+        })
+      );
+  return res || DEFAULT_LANG;
+}
+
 function containsValue(array, value) {
   let valuePresent = false;
   array.map(object => {
@@ -433,4 +504,13 @@ function getProjectKey(project) {
 
 async function sendText(bot, peer, text, attach, actions) {
     bot.sendText(peer, text, attach, actions).catch(err => console.log(err));
+}
+
+function format(template, args) {
+    const teml = template.split("${}");
+    let res = teml[0];
+    for (let i=0; i < args.length; i++) {
+        res +=  args[i] + teml[i+1];
+    }
+    return res
 }
