@@ -130,29 +130,7 @@ async function run(token, endpoint) {
     }
   });
 
-  setInterval(async function() {
-      for (let key in tasksToTrack){
-        if (tasksToTrack[key] !== undefined) {
-            for (let i = 0; i < tasksToTrack[key].length; i++) {
-                let result = await axios({
-                  url: process.env.JIRA_URL + "/rest/api/2/issue/" + tasksToTrack[key][i]["task"],
-                  method: "get",
-                  headers: headers
-                }).then(response => {
-                  let data = response.data;
-                  if (data.fields.status.name !== issueStatus(data.key, key)) {
-                    tasksToTrack[key].map(task => {
-                      if (task.task === data.key) {
-                        task.status = data.fields.status.name;
-                        sendText(bot, peers[key], formatJiraTextForChange(data));
-                      }
-                    });
-                  }
-                }).catch(err => console.log(err));
-            }
-        }
-      }
-    }, TIMEOUT);
+  searchJiraTasks();
 
   //subscribing to incoming messages
   const messagesHandle = bot.subscribeToMessages().pipe(
@@ -323,7 +301,6 @@ async function run(token, endpoint) {
               console.log("logs", containsValue(tasksToTrack[message.peer.id], commandsArray[1]));
               if (containsValue(tasksToTrack[message.peer.id], commandsArray[1])) {
                 tasksToTrack[message.peer.id] = removeValue(tasksToTrack[message.peer.id], commandsArray[1]);
-                console.log("remaining", tasksToTrack[message.peer.id]);
                 sendText(bot, message.peer, format(LOCALE.trackingOff[lang]), [commandsArray[1]]);
               } else {
                 sendText(bot, message.peer, format(LOCALE.noTracking[lang]), [commandsArray[1]]);
@@ -513,4 +490,32 @@ function format(template, args) {
         res +=  args[i] + teml[i+1];
     }
     return res
+}
+
+async function searchJiraTasks() {
+  updateJiraTasks().then(_ => setTimeout(updateJiraTasks, TIMEOUT))
+}
+
+async function updateJiraTasks() {
+  for (let key in tasksToTrack){
+    if (tasksToTrack[key] !== undefined) {
+        for (let i = 0; i < tasksToTrack[key].length; i++) {
+            let result = await axios({
+              url: process.env.JIRA_URL + "/rest/api/2/issue/" + tasksToTrack[key][i]["task"],
+              method: "get",
+              headers: headers
+            }).then(response => {
+              let data = response.data;
+              if (data.fields.status.name !== issueStatus(data.key, key)) {
+                tasksToTrack[key].map(task => {
+                  if (task.task === data.key) {
+                    task.status = data.fields.status.name;
+                    sendText(bot, peers[key], formatJiraTextForChange(data));
+                  }
+                });
+              }
+            }).catch(err => console.log(err));
+        }
+    }
+  }
 }
