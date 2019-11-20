@@ -186,7 +186,7 @@ async function run() {
                     })
                         .then(response => {
                             let sortedTasks = {};
-                            response.data.issues.map(issue => {
+                            response.data.issues.forEach(issue => {
                                 const creator = issue.fields.creator.displayName;
                                 if (!sortedTasks.hasOwnProperty(creator.toString())) sortedTasks[creator.toString()] = [];
                                 sortedTasks[creator.toString()].push(formatJiraText(issue, lang));
@@ -205,8 +205,14 @@ async function run() {
                                 headers: headers
                             })
                                 .then(response => {
+                                    let sortedTasks = {};
                                     if (response.data.issues.length > 0) {
-                                        formatJiraText(response.data.issues, lang);
+                                        const str = response.data.issues.forEach(issue => {
+                                            const creator = issue.fields.creator.displayName;
+                                            if (!sortedTasks.hasOwnProperty(creator.toString())) sortedTasks[creator.toString()] = [];
+                                            sortedTasks[creator.toString()].push(formatJiraText(issue, lang));
+                                        });
+                                        sendSortTasks(message.peer, sortedTasks)
                                     } else {
                                         sendText(message.peer, LOCALE.noUserTasks[lang]);
                                     }
@@ -380,6 +386,7 @@ run().catch(error => {
 });
 
 function formatJiraText(issue, lang) {
+    console.log(issue);
     const timeInProgress = moment(issue.fields.updated).fromNow();
     const taskId = issue.key;
     const taskTitle = issue.fields.summary;
