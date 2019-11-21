@@ -327,7 +327,7 @@ async function run() {
 
     const actionsHandle = bot.subscribeToActions().pipe(
         flatMap(async event => {
-            const projectToPost = await fetchedProjects[[event.uid]].filter(
+            const projectToPost = await fetchedProjects[event.uid].filter(
                 project => project.name === event.value
             );
             const lang = await getCurrentUserLang(event.uid);

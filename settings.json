@@ -1,9 +1,9 @@
 {
-  "botToken": "072e0743ce68189fdde6aa6944c0fcde86c4b73a",
-  "botEndpoint": "https://eem.dlg.im",
-  "user": "d.borodkin",
-  "password": "Diemylie1488",
+  "botToken": "token",
+  "botEndpoint": "enpoint",
+  "user": "user",
+  "password": "password",
   "messageLength": 4096,
-  "jiraUrl": "https://mirror.transmit.im/jira",
+  "jiraUrl": "https://domain",
   "timeout": 30000
 }
