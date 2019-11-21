@@ -34,7 +34,7 @@ const LOCALE = {
         ru: "Неизвестный код проекта. Валидные коды: "
     },
     noUserTasks: {
-        en: "You has no tasks in status \"In Progress\"",
+        en: "You have no tasks in status \"In Progress\"",
         ru: "У Вас нет тасок со статусом \"In Progress\""
     },
     selectProject: {
@@ -141,20 +141,20 @@ async function run() {
         }
     });
 
-    searchJiraTasks().catch(err => console.log(err));
+    searchJiraTasks().catch(err => console.log(`searchJiraTasks failed: ${err}`, err));
 
     //subscribing to incoming messages
     const messagesHandle = bot.subscribeToMessages().pipe(
         flatMap(async message => {
             console.log("MESSAGE", message);
             peers[message.peer.id] = message.peer;
-
-            if (message.content.type === "text") {
+            if (message.content.type === "text" && message.peer.type === "private") {
                 const lang = await getCurrentUserLang(message.peer.id);
-                const wordsArray = message.content.text.split("\n");
-                const command = wordsArray[0];
-                const commandsArray = wordsArray[0].split(" ");
-                const len = wordsArray.length;
+                const linesArray = message.content.text.split("\n");
+                const command = linesArray[0];
+                const selfSpace = String.fromCharCode(8291);  // with copy message from dialog enterprise
+                const commandsArray = linesArray[0].split(selfSpace).join(" ").split(" ").filter(word => word !== "");
+                const countLines = linesArray.length;
                 if (commandsArray.length === 2 &&
                     commandsArray[0] === USERS_ACTIVE_COMMAND) {
                     let projectsArray = [];
@@ -167,7 +167,7 @@ async function run() {
                         res.data.forEach(project => {
                             projectsArray.push(project);
                         });
-                    }).catch(err => console.log("err", err));
+                    }).catch(err => console.log(`Jira request failed: ${err}`, err));
                     let validProject = false;
                     projectsArray.forEach(project => {
                         if (project.key === commandsArray[1]) validProject = true;
@@ -185,15 +185,15 @@ async function run() {
                         headers: headers
                     })
                         .then(response => {
-                            let sortedTasks = {};
+                            let groupedTasks = {};
                             response.data.issues.forEach(issue => {
                                 const creator = issue.fields.creator.displayName;
-                                if (!sortedTasks.hasOwnProperty(creator.toString())) sortedTasks[creator.toString()] = [];
-                                sortedTasks[creator.toString()].push(formatJiraText(issue, lang));
+                                if (!groupedTasks.hasOwnProperty(creator.toString())) groupedTasks[creator.toString()] = [];
+                                groupedTasks[creator.toString()].push(formatJiraText(issue, lang));
                             });
-                            sendSortTasks(message.peer, sortedTasks)
+                            sendGroupedTasks(message.peer, groupedTasks)
                         })
-                        .catch(err => console.log(err));
+                        .catch(err => console.log(`Command ${USERS_ACTIVE_COMMAND} failed.\nJira request failed: ${err}`, err));
                 } else if (command === USER_COMMAND) {
                     getCurrentUserNick(message.peer)
                         .then(user => {
@@ -205,28 +205,26 @@ async function run() {
                                 headers: headers
                             })
                                 .then(response => {
-                                    let sortedTasks = {};
+                                    let groupedTasks = {};
                                     if (response.data.issues.length > 0) {
                                         const str = response.data.issues.forEach(issue => {
                                             const creator = issue.fields.creator.displayName;
-                                            if (!sortedTasks.hasOwnProperty(creator.toString())) sortedTasks[creator.toString()] = [];
-                                            sortedTasks[creator.toString()].push(formatJiraText(issue, lang));
+                                            if (!groupedTasks.hasOwnProperty(creator.toString())) groupedTasks[creator.toString()] = [];
+                                            groupedTasks[creator.toString()].push(formatJiraText(issue, lang));
                                         });
-                                        sendSortTasks(message.peer, sortedTasks)
+                                        sendGroupedTasks(message.peer, groupedTasks)
                                     } else {
                                         sendText(message.peer, LOCALE.noUserTasks[lang]);
                                     }
                                 })
-                                .catch(err => {
-                                    console.log(err);
-                                })
+                                .catch(err => console.log(`Command ${USER_COMMAND} failed.\nJira request failed: ${err}`, err))
                         })
-                        .catch(err => console.log(err));
-                } else if (len > 1 && command === NEW_TASK_COMMAND) {
-                    jiraTaskTitle[message.peer.id] = wordsArray[1];
+                        .catch(err => console.log(`getUser failed: ${err}`, err));
+                } else if (countLines > 1 && command === NEW_TASK_COMMAND) {
+                    jiraTaskTitle[message.peer.id] = linesArray[1];
                     jiraTaskDescription[message.peer.id] = "";
-                    for (let i = 2; i < len; i++) {
-                        jiraTaskDescription[message.peer.id] = jiraTaskDescription[message.peer.id] + wordsArray[i] + "\n"
+                    for (let i = 2; i < countLines; i++) {
+                        jiraTaskDescription[message.peer.id] = jiraTaskDescription[message.peer.id] + linesArray[i] + "\n"
                     }
                     await axios({
                         url: JIRA_URL + "/rest/api/2/project",
@@ -238,7 +236,7 @@ async function run() {
                         res.data.forEach(project => {
                             fetchedProjects[message.peer.id].push(project);
                         });
-                    }).catch(err => console.log("err", err));
+                    }).catch(err => console.log(`Command ${NEW_TASK_COMMAND} failed.\nJira request failed: ${err}`, err));
 
                     //creating dropdown of available project options
                     const dropdownActions = [];
@@ -266,14 +264,14 @@ async function run() {
                             ]
                         })
                     );
-                } else if (len > 1 &&
+                } else if (countLines > 1 &&
                     commandsArray.length === 2 &&
                     commandsArray[0] === COMMENT_COMMAND) {
                     const issue = commandsArray[1];
                     const commentUrl =
                         JIRA_URL + "/rest/api/2/issue/" + issue + "/comment";
                     let comment = "";
-                    for (let i = 1; i < len; i++) comment = comment + wordsArray[i] + "\n";
+                    for (let i = 1; i < countLines; i++) comment = comment + linesArray[i] + "\n";
                     if (comment !== "") {
                         const bodyData = {
                             body: comment
@@ -283,7 +281,7 @@ async function run() {
                             method: "post",
                             headers: headers,
                             data: bodyData
-                        });
+                        }).catch(err => console.log(`Command ${COMMENT_COMMAND} failed.\nJira request failed: ${err}`, err));
 
                         sendText(message.peer, LOCALE.completeComment[lang]);
                     }
@@ -307,13 +305,13 @@ async function run() {
                             }
                         })
                         .catch(err => {
-                            console.log(err);
-                            bot.sendText(message.peer, LOCALE.noTask[lang] + [commandsArray[1]]);
+                            console.log(`Command ${REMIND_COMMAND} failed.\nJira request failed: ${err}`, err);
+                            if (err.response.status === 404)
+                                bot.sendText(message.peer, LOCALE.noTask[lang] + [commandsArray[1]]);
 
                         });
                 } else if (commandsArray[0] === REMIND_STOP_COMMAND && commandsArray.length === 2) {
                     if (tasksToTrack[message.peer.id] === undefined) tasksToTrack[message.peer.id] = [];
-                    console.log("logs", containsValue(tasksToTrack[message.peer.id], commandsArray[1]));
                     if (containsValue(tasksToTrack[message.peer.id], commandsArray[1])) {
                         tasksToTrack[message.peer.id] = removeValue(tasksToTrack[message.peer.id], commandsArray[1]);
                         sendText(message.peer, format(LOCALE.trackingOff[lang], [commandsArray[1]]));
@@ -354,7 +352,7 @@ async function run() {
                 method: "post",
                 headers: headers,
                 data: dataToPost
-            });
+            }).catch(err => `Jira request failed: ${err}`);
 
             // return the response to messenger
             const responseText = formatJiraTextForProject(
@@ -386,7 +384,6 @@ run().catch(error => {
 });
 
 function formatJiraText(issue, lang) {
-    console.log(issue);
     const timeInProgress = moment(issue.fields.updated).fromNow();
     const taskId = issue.key;
     const taskTitle = issue.fields.summary;
@@ -415,7 +412,7 @@ function formatJiraTextForChange(issue) {
     return outputFormat;
 }
 
-async function sendSortTasks(peer, sortedTasks) {
+async function sendGroupedTasks(peer, sortedTasks) {
     let blocks = "";
     let jiraResponse = "";
     const users = Object.keys(sortedTasks);
@@ -454,7 +451,7 @@ async function getCurrentUserLang(uid) {
 
 function containsValue(array, value) {
     let valuePresent = false;
-    array.map(object => {
+    array.forEach(object => {
         if (object.task === value) {
             valuePresent = true;
         }
@@ -464,7 +461,7 @@ function containsValue(array, value) {
 
 function issueStatus(key, uid) {
     let status = "";
-    tasksToTrack[uid].map(taskTracked => {
+    tasksToTrack[uid].forEach(taskTracked => {
         if (taskTracked.task === key) {
             status = taskTracked.status;
         }
@@ -487,7 +484,7 @@ function getProjectKey(project) {
 }
 
 async function sendText(peer, text, attach, actions) {
-    bot.sendText(peer, text, attach, actions).catch(err => console.log(err));
+    bot.sendText(peer, text, attach, actions).catch(err => console.log(`sandText failed: ${err}`, err));
 }
 
 function format(template, args) {
@@ -500,11 +497,10 @@ function format(template, args) {
 }
 
 async function searchJiraTasks() {
-    updateJiraTasks().then(_ => setTimeout(searchJiraTasks, TIMEOUT))
+    updateJiraTasks().then(_ => setTimeout(searchJiraTasks, TIMEOUT)).catch(err => console.log(`updateJiraTasks failed: ${err}`, err))
 }
 
 async function updateJiraTasks() {
-    console.log("any");
     for (let key in tasksToTrack) {
         if (tasksToTrack[key] !== undefined) {
             for (let i = 0; i < tasksToTrack[key].length; i++) {
@@ -522,7 +518,7 @@ async function updateJiraTasks() {
                             }
                         });
                     }
-                }).catch(err => console.log(err));
+                }).catch(err => console.log(`Jira request failed: ${err}`, err));
             }
         }
     }
