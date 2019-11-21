@@ -1,0 +1,9 @@
+{
+  "botToken": "token",
+  "botEndpoint": "enpoint",
+  "user": "user",
+  "password": "password",
+  "messageLength": 4096,
+  "jiraUrl": "https://domain",
+  "timeout": 30000
+}
