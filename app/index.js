@@ -473,8 +473,7 @@ function removeValue(arr, value) {
     for(let i = 0; i < arr.length; i++) {
         if(arr[i] === value) {
             arr[i] = arr[0];
-            arr.splice(1);
-            return arr;
+            return arr.splice(1);
         }
     }
 }
